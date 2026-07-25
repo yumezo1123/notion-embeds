@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>海王システム アーキテクチャ</title>
+<style>
+  :root {
+    --bg: #f4f6fb;
+    --panel: #ffffff;
+    --panel-border: #e2e6f0;
+    --text: #1c2333;
+    --text-dim: #5b6478;
+    --accent: #4f5fe0;
+    --accent-soft: #eef0ff;
+    --accent-2: #0ea5a0;
+    --accent-2-soft: #e6faf8;
+    --accent-3: #e08a3c;
+    --accent-3-soft: #fdf1e4;
+    --danger: #d1495b;
+    --danger-soft: #fdeaee;
+    --ok: #2f9e63;
+    --ok-soft: #e8f7ee;
+    --arrow: #9aa3bd;
+    --code-bg: #1c2333;
+    --code-text: #d6dcf0;
+    --shadow: 0 1px 2px rgba(28,35,51,0.04), 0 8px 24px rgba(28,35,51,0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12141c;
+      --panel: #1a1d29;
+      --panel-border: #2a2e3f;
+      --text: #e7eaf5;
+      --text-dim: #9aa1b8;
+      --accent: #8b93f2;
+      --accent-soft: #262a48;
+      --accent-2: #3fd9d1;
+      --accent-2-soft: #14312f;
+      --accent-3: #f0a85e;
+      --accent-3-soft: #3a2c17;
+      --danger: #f0768a;
+      --danger-soft: #3a1f26;
+      --ok: #6fd99a;
+      --ok-soft: #1a3327;
+      --arrow: #55597a;
+      --code-bg: #0d0f16;
+      --code-text: #c7cdea;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12141c; --panel: #1a1d29; --panel-border: #2a2e3f; --text: #e7eaf5; --text-dim: #9aa1b8;
+    --accent: #8b93f2; --accent-soft: #262a48; --accent-2: #3fd9d1; --accent-2-soft: #14312f;
+    --accent-3: #f0a85e; --accent-3-soft: #3a2c17; --danger: #f0768a; --danger-soft: #3a1f26;
+    --ok: #6fd99a; --ok-soft: #1a3327; --arrow: #55597a; --code-bg: #0d0f16; --code-text: #c7cdea;
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f6fb; --panel: #ffffff; --panel-border: #e2e6f0; --text: #1c2333; --text-dim: #5b6478;
+    --accent: #4f5fe0; --accent-soft: #eef0ff; --accent-2: #0ea5a0; --accent-2-soft: #e6faf8;
+    --accent-3: #e08a3c; --accent-3-soft: #fdf1e4; --danger: #d1495b; --danger-soft: #fdeaee;
+    --ok: #2f9e63; --ok-soft: #e8f7ee; --arrow: #9aa3bd; --code-bg: #1c2333; --code-text: #d6dcf0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Segoe UI", system-ui, sans-serif;
+    padding: 32px 20px 60px;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  header { margin-bottom: 28px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; letter-spacing: 0.02em; }
+  .subtitle { color: var(--text-dim); font-size: 0.88rem; }
+  h2 {
+    font-size: 1.02rem; margin: 40px 0 14px; display: flex; align-items: center; gap: 8px;
+  }
+  h2 .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 6px; background: var(--accent); color: #fff;
+    font-size: 0.72rem; font-weight: 700;
+  }
+  .panel {
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 14px;
+    padding: 24px; box-shadow: var(--shadow); overflow-x: auto;
+  }
+
+  /* ---- diagram ---- */
+  .diagram { display: flex; flex-direction: column; align-items: stretch; gap: 0; min-width: 640px; }
+  .row { display: flex; justify-content: center; align-items: stretch; gap: 16px; flex-wrap: nowrap; }
+  .col { display: flex; flex-direction: column; align-items: center; }
+  .box {
+    border-radius: 10px; padding: 10px 16px; font-size: 0.82rem; font-weight: 600;
+    text-align: center; white-space: nowrap; border: 1.5px solid transparent;
+  }
+  .box .desc { display: block; font-weight: 400; font-size: 0.72rem; margin-top: 2px; opacity: 0.85; white-space: normal; max-width: 220px; }
+  .box.trigger { background: var(--accent-3-soft); border-color: var(--accent-3); color: var(--accent-3); }
+  .box.job { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .box.engine { background: var(--accent-2-soft); border-color: var(--accent-2); color: var(--accent-2); flex: 1; }
+  .box.ext { background: var(--panel); border-color: var(--panel-border); color: var(--text); }
+  .box.db { background: var(--accent-2-soft); border-color: var(--accent-2); color: var(--accent-2); font-weight: 500; font-size: 0.76rem; }
+  .box.vm { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .box.user { background: var(--panel); border-color: var(--panel-border); color: var(--text-dim); font-weight: 500; }
+  .box.secret { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); font-size: 0.76rem; }
+
+  .arrow-down { color: var(--arrow); font-size: 1.1rem; text-align: center; line-height: 1; padding: 4px 0; }
+  .arrow-right { color: var(--arrow); font-size: 1.1rem; padding: 0 6px; align-self: center; }
+  .group-label {
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim);
+    margin-bottom: 8px; text-align: center;
+  }
+  .cluster {
+    border: 1px dashed var(--panel-border); border-radius: 12px; padding: 14px 18px; margin: 10px 0;
+  }
+  .flex-wrap-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+  /* ---- stack table ---- */
+  table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--panel-border); }
+  th { color: var(--text-dim); font-weight: 600; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  td:first-child { color: var(--accent); font-weight: 600; white-space: nowrap; }
+
+  /* ---- phase cards ---- */
+  .phases { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .phase-card { border: 1px solid var(--panel-border); border-radius: 12px; padding: 16px; background: var(--bg); }
+  .phase-title { font-weight: 700; font-size: 0.92rem; margin-bottom: 2px; }
+  .phase-budget { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 10px; }
+  .phase-row { font-size: 0.8rem; margin: 6px 0; padding-left: 14px; border-left: 2px solid var(--accent-soft); }
+  .phase-row b { color: var(--text); }
+
+  /* ---- status grid ---- */
+  .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .status-card { border-radius: 12px; padding: 14px 16px; border: 1px solid var(--panel-border); display: flex; gap: 10px; align-items: flex-start; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+  .dot.ok { background: var(--ok); }
+  .dot.warn { background: var(--accent-3); }
+  .dot.off { background: var(--danger); }
+  .status-card .label { font-weight: 600; font-size: 0.85rem; }
+  .status-card .note { font-size: 0.76rem; color: var(--text-dim); margin-top: 2px; }
+
+  ul.constraints { margin: 0; padding-left: 20px; font-size: 0.86rem; }
+  ul.constraints li { margin-bottom: 8px; }
+
+  footer { margin-top: 40px; font-size: 0.72rem; color: var(--text-dim); text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>🌊 海王システム — システムアーキテクチャ</h1>
+    <div class="subtitle">Meta広告自動管理システム（案件：株式会社エッセンスクライアント）／ 2026-07-25時点</div>
+  </header>
+
+  <section class="panel">
+    <h2><span class="num">1</span>全体構成</h2>
+    <div class="diagram">
+
+      <!-- ユーザー動線 -->
+      <div class="group-label">管理画面アクセス経路</div>
+      <div class="row">
+        <div class="box user">田口さん / クライアント</div>
+        <div class="arrow-right">→</div>
+        <div class="box vm">VM: nginx<span class="desc">ad-automation-vm（us-west1-a）ファイアウォール開放</span></div>
+        <div class="arrow-right">→</div>
+        <div class="box vm">dashboard<span class="desc">Next.js／Cookie認証</span></div>
+        <div class="arrow-right">→</div>
+        <div class="box vm">api<span class="desc">FastAPI</span></div>
+      </div>
+
+      <div class="arrow-down">↓ ↓</div>
+
+      <!-- 自動化バッチ動線 -->
+      <div class="group-label">時刻起動バッチ（自動化ルール）</div>
+      <div class="row">
+        <div class="box trigger">Cloud Scheduler</div>
+      </div>
+      <div class="arrow-down">↓</div>
+      <div class="row">
+        <div class="box job">job-midnight<span class="desc">00:00 JST<br>前日CPA評価→フェーズ昇降格→予算設定</span></div>
+        <div class="box job">job-noon<span class="desc">12:00 JST<br>0時差分CVで判定・実行</span></div>
+        <div class="box job">job-evening<span class="desc">18:00 JST<br>同上・円単位で予算取得</span></div>
+      </div>
+      <div class="arrow-down">↓ ↓ ↓</div>
+      <div class="row">
+        <div class="box engine">engine/（共通ロジック）<span class="desc">notion_db.py ・ rules.py ・ client_utils.py ・ meta_insights.py</span></div>
+      </div>
+
+      <div class="arrow-down">↙ ↘</div>
+
+      <div class="row">
+        <div class="box ext">Meta Marketing API v21.0<span class="desc">広告数値取得・キャンペーン操作</span></div>
+        <div class="box ext">Notion API<span class="desc">設定・状態の正</span></div>
+      </div>
+
+      <div class="arrow-down">↓</div>
+
+      <div class="cluster">
+        <div class="group-label">Notion DB群</div>
+        <div class="flex-wrap-row">
+          <div class="box db">DB_CLIENT_CONFIG<span class="desc">account_id・target_cpa</span></div>
+          <div class="box db">DB_CAMPAIGN_STATE<span class="desc">現在フェーズ</span></div>
+          <div class="box db">DB_SNAPSHOT<span class="desc">0時消化額・CV数</span></div>
+          <div class="box db">DB_APPROVAL_QUEUE<span class="desc">未使用（auto_execute=true固定）</span></div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:6px;">
+        <div class="box ext">Chatwork API<span class="desc">通知（現状DRY_RUNのため未送信）</span></div>
+        <div class="box secret">Secret Manager<span class="desc">META_ACCESS_TOKEN / NOTION_TOKEN / CLAUDE_API_KEY</span></div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span>技術スタック</h2>
+    <div class="panel">
+      <table>
+        <tr><th>レイヤー</th><th>技術</th></tr>
+        <tr><td>バッチ処理</td><td>Python 3.11（標準ライブラリ中心、urllib.request）</td></tr>
+        <tr><td>API</td><td>FastAPI + Uvicorn</td></tr>
+        <tr><td>ダッシュボード</td><td>Next.js 16（App Router）/ React 19 / TypeScript / Tailwind CSS v4 / shadcn/ui / TanStack Query v5 / Recharts</td></tr>
+        <tr><td>データ管理</td><td>Notion API</td></tr>
+        <tr><td>インフラ</td><td>GCP（Cloud Run Jobs, Compute Engine, Secret Manager, Artifact Registry, Cloud Build）</td></tr>
+        <tr><td>認証（ダッシュボード）</td><td>Cookie + パスワード方式（APP_PASSWORD環境変数）</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span>自動化ルール（フェーズ管理・2026-07-11確定版）</h2>
+    <div class="panel">
+      <div class="phases">
+        <div class="phase-card">
+          <div class="phase-title">Phase 1</div>
+          <div class="phase-budget">初期予算：許容CPA × 1</div>
+          <div class="phase-row"><b>12時：</b>0CV→停止 ／ 1CV以上→予算×1.5</div>
+          <div class="phase-row"><b>18時：</b>2CV以上→予算×1.35 ／ 1CVのみ→×1に戻す</div>
+          <div class="phase-row"><b>24時：</b>達成→Phase2 ／ 未達→停止・複製</div>
+        </div>
+        <div class="phase-card">
+          <div class="phase-title">Phase 2</div>
+          <div class="phase-budget">初期予算：許容CPA × 2</div>
+          <div class="phase-row"><b>12時：</b>0CV→停止(翌日P1) ／ 1CV→継続 ／ 2CV以上→予算×2</div>
+          <div class="phase-row"><b>18時：</b>3CV以上→継続 ／ 2CV→継続 ／ 1CV以下→停止(翌日P1)</div>
+          <div class="phase-row"><b>24時：</b>達成→Phase3 ／ 未達→Phase1</div>
+        </div>
+        <div class="phase-card">
+          <div class="phase-title">Phase 3</div>
+          <div class="phase-budget">初期予算：許容CPA × 4</div>
+          <div class="phase-row"><b>12時：</b>0CV→停止(翌日P1) ／ 1CV→停止(翌日P2) ／ 2CV以上→継続</div>
+          <div class="phase-row"><b>18時：</b>3CV以上→継続 ／ 2CV以下→Phase2水準に降格</div>
+          <div class="phase-row"><b>24時：</b>達成→Phase3継続 ／ 未達→Phase2</div>
+        </div>
+      </div>
+      <p style="font-size:0.78rem; color:var(--text-dim); margin:16px 0 0;">
+        自動停止・予算変更は承認なしの即時実行（auto_execute=true固定）。対象はNotionのaccount_idから動的取得した現在ACTIVEな全キャンペーン。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span>現在の運用状態（2026-07-20時点）</h2>
+    <div class="panel">
+      <div class="status-grid">
+        <div class="status-card"><div class="dot ok"></div><div><div class="label">数値取得</div><div class="note">本番稼働中。Meta APIからリアルタイム取得</div></div></div>
+        <div class="status-card"><div class="dot warn"></div><div><div class="label">ルール適用（停止・予算変更）</div><div class="note">未実行。Cloud Run JobsはDRY_RUN=trueのまま。ロジックは実装・検証済み</div></div></div>
+        <div class="status-card"><div class="dot off"></div><div><div class="label">Chatwork通知</div><div class="note">未送信（DRY_RUNログ表示のみ）</div></div></div>
+        <div class="status-card"><div class="dot off"></div><div><div class="label">クリエイティブ複製フロー</div><div class="note">未実装（先方要望あり、Drive連携込みで要設計）</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span>既知の制約・注意点</h2>
+    <div class="panel">
+      <ul class="constraints">
+        <li>ビジネスポートフォリオ単位の一括アクセス不可（system userトークンに business_management 権限がない）→ account_id 個別登録運用</li>
+        <li>アカウント内の全ACTIVEキャンペーンが自動化対象になる（意図しないキャンペーンも対象になり得る）</li>
+        <li>DRY_RUN解除（実際の広告への書き込み）はプロジェクトオーナーの明示的な承認後に実施</li>
+        <li>Cloud Run ServiceでなくVMを採用：GCP組織ポリシー（iam.managed.allowedPolicyMembers）により匿名アクセスが不可なため（essenceclient.co.jp組織の制約）</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    海王システム（Meta広告自動管理システム）／ 出典: 案件/エッセンスクライアント/02-ad-automation-base/docs/2026-07-20_spec-current.md
+  </footer>
+</div>
+</body>
+</html>
