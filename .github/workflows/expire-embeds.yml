@@ -1,4 +1,4 @@
-name: Expire old embeds
+name: Expire old embeds (3 days)
 
 on:
   schedule:
@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Delete directories older than 30 days
+      - name: Delete directories older than 3 days
         run: |
           set -e
           today=$(date -u +%s)
@@ -26,7 +26,7 @@ jobs:
             [ -z "$datepart" ] && continue
             created=$(date -u -d "$datepart" +%s 2>/dev/null) || continue
             age_days=$(( (today - created) / 86400 ))
-            if [ "$age_days" -ge 30 ]; then
+            if [ "$age_days" -ge 3 ]; then
               echo "Removing $dir (age: ${age_days}d)"
               git rm -r --ignore-unmatch "$dir"
               removed=1
@@ -35,7 +35,7 @@ jobs:
           if [ "$removed" -eq 1 ]; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
-            git commit -m "Auto-expire embeds older than 30 days"
+            git commit -m "Auto-expire embeds older than 3 days"
             git push
           else
             echo "Nothing to expire"
