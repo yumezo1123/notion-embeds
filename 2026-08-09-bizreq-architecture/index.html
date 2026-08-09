@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>ビズリク業務ツール群 アーキテクチャ</title>
+<style>
+  :root {
+    --bg: #f4f6fb;
+    --panel: #ffffff;
+    --panel-border: #e2e6f0;
+    --text: #1c2333;
+    --text-dim: #5b6478;
+    --accent: #4f5fe0;
+    --accent-soft: #eef0ff;
+    --accent-2: #0ea5a0;
+    --accent-2-soft: #e6faf8;
+    --accent-3: #e08a3c;
+    --accent-3-soft: #fdf1e4;
+    --danger: #d1495b;
+    --danger-soft: #fdeaee;
+    --ok: #2f9e63;
+    --ok-soft: #e8f7ee;
+    --arrow: #9aa3bd;
+    --code-bg: #1c2333;
+    --code-text: #d6dcf0;
+    --shadow: 0 1px 2px rgba(28,35,51,0.04), 0 8px 24px rgba(28,35,51,0.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #12141c;
+      --panel: #1a1d29;
+      --panel-border: #2a2e3f;
+      --text: #e7eaf5;
+      --text-dim: #9aa1b8;
+      --accent: #8b93f2;
+      --accent-soft: #262a48;
+      --accent-2: #3fd9d1;
+      --accent-2-soft: #14312f;
+      --accent-3: #f0a85e;
+      --accent-3-soft: #3a2c17;
+      --danger: #f0768a;
+      --danger-soft: #3a1f26;
+      --ok: #6fd99a;
+      --ok-soft: #1a3327;
+      --arrow: #55597a;
+      --code-bg: #0d0f16;
+      --code-text: #c7cdea;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #12141c; --panel: #1a1d29; --panel-border: #2a2e3f; --text: #e7eaf5; --text-dim: #9aa1b8;
+    --accent: #8b93f2; --accent-soft: #262a48; --accent-2: #3fd9d1; --accent-2-soft: #14312f;
+    --accent-3: #f0a85e; --accent-3-soft: #3a2c17; --danger: #f0768a; --danger-soft: #3a1f26;
+    --ok: #6fd99a; --ok-soft: #1a3327; --arrow: #55597a; --code-bg: #0d0f16; --code-text: #c7cdea;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.35);
+  }
+  :root[data-theme="light"] {
+    --bg: #f4f6fb; --panel: #ffffff; --panel-border: #e2e6f0; --text: #1c2333; --text-dim: #5b6478;
+    --accent: #4f5fe0; --accent-soft: #eef0ff; --accent-2: #0ea5a0; --accent-2-soft: #e6faf8;
+    --accent-3: #e08a3c; --accent-3-soft: #fdf1e4; --danger: #d1495b; --danger-soft: #fdeaee;
+    --ok: #2f9e63; --ok-soft: #e8f7ee; --arrow: #9aa3bd; --code-bg: #1c2333; --code-text: #d6dcf0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic", "Segoe UI", system-ui, sans-serif;
+    padding: 32px 20px 60px;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  header { margin-bottom: 28px; }
+  h1 { font-size: 1.5rem; margin: 0 0 4px; letter-spacing: 0.02em; }
+  .subtitle { color: var(--text-dim); font-size: 0.88rem; }
+  h2 { font-size: 1.02rem; margin: 40px 0 14px; display: flex; align-items: center; gap: 8px; }
+  h2 .num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 22px; height: 22px; border-radius: 6px; background: var(--accent); color: #fff;
+    font-size: 0.72rem; font-weight: 700;
+  }
+  .panel {
+    background: var(--panel); border: 1px solid var(--panel-border); border-radius: 14px;
+    padding: 24px; box-shadow: var(--shadow); overflow-x: auto;
+  }
+
+  /* ---- diagram ---- */
+  .diagram { display: flex; flex-direction: column; align-items: stretch; gap: 0; min-width: 640px; }
+  .row { display: flex; justify-content: center; align-items: stretch; gap: 16px; flex-wrap: nowrap; }
+  .box {
+    border-radius: 10px; padding: 10px 16px; font-size: 0.82rem; font-weight: 600;
+    text-align: center; white-space: nowrap; border: 1.5px solid transparent;
+  }
+  .box .desc { display: block; font-weight: 400; font-size: 0.72rem; margin-top: 2px; opacity: 0.85; white-space: normal; max-width: 230px; }
+  .box.source { background: var(--accent-3-soft); border-color: var(--accent-3); color: var(--accent-3); }
+  .box.tool { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .box.artifact { background: var(--accent-2-soft); border-color: var(--accent-2); color: var(--accent-2); font-weight: 500; font-size: 0.76rem; }
+  .box.ext { background: var(--panel); border-color: var(--panel-border); color: var(--text); }
+  .box.gate { background: var(--danger-soft); border-color: var(--danger); color: var(--danger); }
+  .box.user { background: var(--panel); border-color: var(--panel-border); color: var(--text-dim); font-weight: 500; }
+
+  .arrow-down { color: var(--arrow); font-size: 1.1rem; text-align: center; line-height: 1; padding: 4px 0; }
+  .arrow-right { color: var(--arrow); font-size: 1.1rem; padding: 0 6px; align-self: center; }
+  .group-label {
+    font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-dim);
+    margin-bottom: 8px; text-align: center;
+  }
+  .cluster { border: 1px dashed var(--panel-border); border-radius: 12px; padding: 14px 18px; margin: 10px 0; }
+  .flex-wrap-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+  /* ---- phase pipeline ---- */
+  .phases { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+  .phase-card { border: 1px solid var(--panel-border); border-radius: 12px; padding: 16px; background: var(--bg); }
+  .phase-title { font-weight: 700; font-size: 0.92rem; margin-bottom: 2px; }
+  .phase-cmd { font-size: 0.7rem; color: var(--text-dim); margin-bottom: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; }
+  .phase-row { font-size: 0.8rem; margin: 6px 0; padding-left: 14px; border-left: 2px solid var(--accent-soft); }
+  .phase-row b { color: var(--text); }
+
+  /* ---- tables ---- */
+  table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--panel-border); vertical-align: top; }
+  th { color: var(--text-dim); font-weight: 600; font-size: 0.76rem; text-transform: uppercase; letter-spacing: 0.03em; }
+  td:first-child { color: var(--accent); font-weight: 600; white-space: nowrap; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; background: var(--accent-soft); color: var(--accent); padding: 1px 5px; border-radius: 4px; }
+
+  /* ---- status / gates ---- */
+  .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .status-card { border-radius: 12px; padding: 14px 16px; border: 1px solid var(--panel-border); display: flex; gap: 10px; align-items: flex-start; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+  .dot.ok { background: var(--ok); }
+  .dot.warn { background: var(--accent-3); }
+  .dot.off { background: var(--danger); }
+  .status-card .label { font-weight: 600; font-size: 0.85rem; }
+  .status-card .note { font-size: 0.76rem; color: var(--text-dim); margin-top: 2px; }
+
+  .gates { counter-reset: gate; display: grid; gap: 10px; }
+  .gate-item {
+    display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px;
+    border: 1px solid var(--danger); background: var(--danger-soft); border-radius: 10px;
+  }
+  .gate-item .n {
+    flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%; background: var(--danger); color: #fff;
+    font-size: 0.7rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; margin-top: 2px;
+  }
+  .gate-item .g-label { font-weight: 700; font-size: 0.85rem; color: var(--danger); }
+  .gate-item .g-note { font-size: 0.78rem; color: var(--text-dim); margin-top: 2px; }
+
+  ul.constraints { margin: 0; padding-left: 20px; font-size: 0.86rem; }
+  ul.constraints li { margin-bottom: 8px; }
+  .risk { color: var(--danger); font-weight: 700; }
+
+  footer { margin-top: 40px; font-size: 0.72rem; color: var(--text-dim); text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>ビズリク業務ツール群 — システムアーキテクチャ</h1>
+    <div class="subtitle">株式会社ビズリク／新卒学生ネットワーク運用を支える8ツール（BizReqワークスペース）／ 2026-08-09時点</div>
+  </header>
+
+  <section class="panel">
+    <h2><span class="num">1</span>全体構成</h2>
+    <div class="diagram">
+
+      <div class="group-label">共通データソース</div>
+      <div class="row">
+        <div class="box source">Lステップ<span class="desc">友だちリスト／フォーム回答をCP932 CSVで書き出し</span></div>
+        <div class="box source">organizations.json<span class="desc">学生団体59件の共通マスター（唯一の正本）</span></div>
+        <div class="box source">service-deck.csv<span class="desc">サービス資料の数値19指標</span></div>
+      </div>
+
+      <div class="arrow-down">↓ ↓ ↓</div>
+
+      <div class="cluster">
+        <div class="group-label">ローカル実行ツール（Codexからコマンド実行）</div>
+        <div class="flex-wrap-row">
+          <div class="box tool">agent-payment-mailer<span class="desc">支払照合→明細書PDF→メール→GMO振込CSV</span></div>
+          <div class="box tool">member-demographics-report<span class="desc">学歴・学年・男女比・文理比の集計</span></div>
+          <div class="box tool">friend-growth-report<span class="desc">流入経路レポート（週別・累計）</span></div>
+          <div class="box tool">interim_report_analysis<span class="desc">団体別 中間／最終報告Excelを一括生成</span></div>
+          <div class="box tool">organization-fill<span class="desc">「関東の団体」列の補完</span></div>
+          <div class="box tool">service-deck-generator<span class="desc">サービス資料の静的サイト＋PDF</span></div>
+          <div class="box tool">friend-form-design<span class="desc">友だち情報・4種フォームの設計台帳</span></div>
+        </div>
+      </div>
+
+      <div class="arrow-down">↓</div>
+
+      <div class="row">
+        <div class="box gate">人間の確認</div>
+        <div class="arrow-right">→</div>
+        <div class="box artifact">output/ ・ outputs/<span class="desc">CSV・PDF・xlsx・PNG（個人データを含み得る）</span></div>
+      </div>
+
+      <div class="arrow-down">↓</div>
+
+      <div class="cluster">
+        <div class="group-label">外部サービス（送信を伴う＝すべて人間承認が前提）</div>
+        <div class="flex-wrap-row">
+          <div class="box ext">Gmail SMTP<span class="desc">支払い明細書PDFの送付</span></div>
+          <div class="box ext">Slack Incoming Webhook<span class="desc">流入経路レポート2通</span></div>
+          <div class="box ext">Google Drive<span class="desc">スプレッドシート化・世代管理</span></div>
+          <div class="box ext">GMOあおぞらネット銀行<span class="desc">振込CSVの取込（アップロードは手作業）</span></div>
+        </div>
+      </div>
+
+    </div>
+    <p style="font-size:0.78rem; color:var(--text-dim); margin:16px 0 0;">
+      共通しているのは「ローカルのCSVを入力に、ローカルへ成果物を書き、外部送信の直前で必ず人が止まる」という形。管理画面・常時稼働サーバーは存在しない。
+    </p>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span>支払いシステムのデータフロー（中核）</h2>
+    <div class="panel">
+      <div class="diagram">
+        <div class="row">
+          <div class="box source">案件終了フォームCSV<span class="desc">回答ID・回答者ID・エージェント様・名前・面談日程</span></div>
+          <div class="box source">Lステップ member CSV<span class="desc">登録ID・メール・口座7項目／2段ヘッダー</span></div>
+        </div>
+        <div class="arrow-down">↓ ↓</div>
+        <div class="row">
+          <div class="box tool">フェーズ1：照合<span class="desc">prepare_payment_batch.py</span></div>
+        </div>
+        <div class="arrow-down">↓</div>
+        <div class="row">
+          <div class="box artifact">payment_candidates.csv<span class="desc">全回答＝照合結果の正本</span></div>
+        </div>
+        <div class="arrow-down">↙ ↘</div>
+        <div class="row">
+          <div class="box artifact">payment_ready.csv<span class="desc">PDF・GMOの対象</span></div>
+          <div class="box gate">needs_review.csv<span class="desc">ID不一致・案件不明・面談日不正・メール未登録</span></div>
+        </div>
+        <div class="arrow-down">↓</div>
+        <div class="row">
+          <div class="box tool">フェーズ2：PDF生成<span class="desc">generate_statements.py／最大8並列</span></div>
+          <div class="arrow-right">→</div>
+          <div class="box artifact">支払ID.pdf ＋ pdf_manifest.csv</div>
+        </div>
+        <div class="arrow-down">↙ ↘</div>
+        <div class="row">
+          <div class="box tool">フェーズ3：メール<span class="desc">create_email_dry_run.py → send_email_batch.py</span></div>
+          <div class="box tool">フェーズ4：振込<span class="desc">create_bank_account_csv.py → create_gmo_transfer_csv.py</span></div>
+        </div>
+        <div class="arrow-down">↓ ↓</div>
+        <div class="row">
+          <div class="box artifact">email_delivery_result.csv<span class="desc">送付済み／送付失敗／送付対象外／スキップ</span></div>
+          <div class="box artifact">振込データ_YYYYMMDD.csv<span class="desc">CP932・CRLF・ヘッダーなし9列</span></div>
+        </div>
+      </div>
+
+      <div class="phases" style="margin-top:24px;">
+        <div class="phase-card">
+          <div class="phase-title">フェーズ1｜照合</div>
+          <div class="phase-cmd">prepare_payment_batch.py</div>
+          <div class="phase-row"><b>入力：</b>2つのCSVを絶対パスで明示（自動探索しない）</div>
+          <div class="phase-row"><b>判定：</b>人物・案件・面談日程・メール有無</div>
+          <div class="phase-row"><b>停止：</b>回答IDの重複・空欄があればバッチ全体を中止</div>
+        </div>
+        <div class="phase-card">
+          <div class="phase-title">フェーズ2｜明細書PDF</div>
+          <div class="phase-cmd">generate_statements.py</div>
+          <div class="phase-row"><b>並列：</b>CPU数に応じ最大8件（実測 1並列2.255秒→8並列0.838秒／100件）</div>
+          <div class="phase-row"><b>安全：</b>一時ファイルへ書き成功時だけ確定。1件の失敗が他を止めない</div>
+          <div class="phase-row"><b>非掲載：</b>メール・登録ID・口座情報はPDFに載せない</div>
+        </div>
+        <div class="phase-card">
+          <div class="phase-title">フェーズ3｜メール送付</div>
+          <div class="phase-cmd">create_email_dry_run.py → send_email_batch.py</div>
+          <div class="phase-row"><b>既定：</b>testモード＝固定テスト宛先。学生本人には送らない</div>
+          <div class="phase-row"><b>本番：</b>productionモードのドライランを作り直してから送る</div>
+          <div class="phase-row"><b>再送：</b>前回結果CSVを明示指定し送付済みをスキップ</div>
+        </div>
+        <div class="phase-card">
+          <div class="phase-title">フェーズ4｜GMO振込</div>
+          <div class="phase-cmd">create_bank_account_csv.py → create_gmo_transfer_csv.py</div>
+          <div class="phase-row"><b>結合：</b>登録IDの完全一致のみ</div>
+          <div class="phase-row"><b>整形：</b>銀行4桁・支店3桁・口座7桁へゼロ埋め／受取人名は半角カナ</div>
+          <div class="phase-row"><b>範囲外：</b>GMOへのアップロードと振込実行はツールの対象外</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span>照合の不変条件</h2>
+    <div class="panel">
+      <table>
+        <tr><th>対象</th><th>ルール</th></tr>
+        <tr><td>人物</td><td><code>案件終了フォーム.回答者ID = member.登録ID</code> の完全一致だけ。氏名・フリガナ・回答者名・メールアドレスによる代替照合はしない</td></tr>
+        <tr><td>案件</td><td>フォームの <code>エージェント様</code> と案件マスタのキーの完全一致だけ。大文字小文字・全角半角・括弧・空白の違いは別値として扱う</td></tr>
+        <tr><td>支払単位</td><td>回答1件（<code>回答ID</code>）＝支払い候補1件。同一人物が複数案件を完了したら別支払いとして保持する</td></tr>
+        <tr><td>一致0件／2件以上</td><td>照合状態を <span class="risk">要確認</span> とし、PDF・メール・GMOのいずれの対象にもしない</td></tr>
+        <tr><td>メール未登録</td><td>支払い・PDF生成の対象には残し、メール送付だけを止める（<code>メール状態=要確認</code>）</td></tr>
+        <tr><td>支払予定日</td><td>面談日の属する月を月末締めとし、<b>翌々月5日で固定</b>。金融機関休業日でも前後に動かさない</td></tr>
+        <tr><td>不一致者の氏名</td><td>ローカルの要確認一覧にだけ出力し、PDF・メール・GMOデータへ混入させない</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span>人間の承認ゲート（外部送信の前に4段）</h2>
+    <div class="panel">
+      <div class="gates">
+        <div class="gate-item">
+          <span class="n">1</span>
+          <div>
+            <div class="g-label">ドライランの目視確認</div>
+            <div class="g-note">email_dry_run.csv で宛先・PDFファイル・件名・送信可否をすべて確認する。送信不可の理由を解消せずに次へ進まない</div>
+          </div>
+        </div>
+        <div class="gate-item">
+          <span class="n">2</span>
+          <div>
+            <div class="g-label">--confirm-send</div>
+            <div class="g-note">このフラグがなければ外部送信は安全停止する（終了コード2）</div>
+          </div>
+        </div>
+        <div class="gate-item">
+          <span class="n">3</span>
+          <div>
+            <div class="g-label">--delivery-mode production</div>
+            <div class="g-note">学生本人のメールアドレスを使うのはこのモードだけ。テスト宛先の環境変数は本番モードでは無視される。testモードで作ったドライランをproductionで送ろうとすると全件が送付対象外になる</div>
+          </div>
+        </div>
+        <div class="gate-item">
+          <span class="n">4</span>
+          <div>
+            <div class="g-label">--confirm-production-send</div>
+            <div class="g-note">学生本人への一斉送信に必要な二重目の承認フラグ</div>
+          </div>
+        </div>
+      </div>
+      <p style="font-size:0.78rem; color:var(--text-dim); margin:16px 0 0;">
+        同じ思想が他ツールにも通っている。friend-growth-report は <code>--post</code> がなければSlackへ送らず、organization-fill と service-deck-generator は外部送信の実装自体を持たない。member-demographics-report のDrive世代管理は、対象を一意に特定できなければ何も動かさずに停止する。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span>他7ツールの入出力</h2>
+    <div class="panel">
+      <table>
+        <tr><th>ツール</th><th>入力</th><th>出力</th><th>外部連携</th></tr>
+        <tr>
+          <td>member-demographics-report</td>
+          <td>メンバーCSV（UTF-8／CP932・ヘッダーは先頭10行から検出）</td>
+          <td>集計xlsx（サマリー／学校別内訳／集計ルール）＋QA画像</td>
+          <td>Google Drive（スプレッドシート化・前回分を1件だけゴミ箱へ移動）</td>
+        </tr>
+        <tr>
+          <td>friend-growth-report</td>
+          <td>Lステップ CSV（CP932）1件</td>
+          <td>週別・累計の2レポート本文</td>
+          <td>Slack Incoming Webhook（2通投稿後にCSVをprocessedへ移動）</td>
+        </tr>
+        <tr>
+          <td>interim_report_analysis</td>
+          <td>メンバーCSV＋organizations.json（59団体）</td>
+          <td>団体ごとのExcel5シート＋PNG＋generation_summary.csv</td>
+          <td>なし（Drive対象一覧のローカルCSVを作るだけ）</td>
+        </tr>
+        <tr>
+          <td>organization-fill</td>
+          <td>メンバーCSV＋organizations.json</td>
+          <td>補完済CSV・判断根拠レポート・サマリー</td>
+          <td>なし</td>
+        </tr>
+        <tr>
+          <td>service-deck-generator</td>
+          <td>service-deck.csv（7列・19指標）</td>
+          <td>8ページの静的サイト＋16:9 PDF</td>
+          <td>なし（PDF生成時のみ127.0.0.1でローカルサーバー起動）</td>
+        </tr>
+        <tr>
+          <td>friend-form-design</td>
+          <td>build.mjs 内の定義（外部入力なし）</td>
+          <td>友だち情報・4種フォームの設計台帳xlsx（7シート）＋PNG</td>
+          <td>なし（実フォーム・Lステップ未接続の設計成果物）</td>
+        </tr>
+        <tr>
+          <td>organizations.json</td>
+          <td>—</td>
+          <td>学生団体名の共通マスター59件</td>
+          <td>interim_report_analysis と organization-fill が固定パスで参照</td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">6</span>技術スタックと実行環境</h2>
+    <div class="panel">
+      <table>
+        <tr><th>レイヤー</th><th>技術</th></tr>
+        <tr><td>支払いバッチ</td><td>Python 3 ＋ reportlab（PDF描画）。他は標準ライブラリのみ</td></tr>
+        <tr><td>集計・補完</td><td>Python 3 標準ライブラリ（csv／unicodedata／concurrent.futures）</td></tr>
+        <tr><td>Excel生成</td><td>Node.js ＋ <code>@oai/artifact-tool</code>（Codexランタイム同梱）</td></tr>
+        <tr><td>資料生成</td><td>Node.js 20+／Astro 7／TypeScript／csv-parse／Playwright</td></tr>
+        <tr><td>テスト</td><td>Python unittest（支払い21本・集計3本・設定1本）／tsxによるデータ検証</td></tr>
+        <tr><td>秘密情報</td><td>SMTPパスワードはプロフィール専用の環境変数からのみ取得。JSON・コード・Gitには書かない</td></tr>
+        <tr><td>実行形態</td><td>すべてローカルのCLI。管理画面・常時稼働サーバー・定期実行は持たない</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">7</span>現在の運用状態</h2>
+    <div class="panel">
+      <div class="status-grid">
+        <div class="status-card"><div class="dot ok"></div><div><div class="label">支払い照合〜PDF生成</div><div class="note">実装・テスト済み。匿名100件で並列生成を実測済み</div></div></div>
+        <div class="status-card"><div class="dot ok"></div><div><div class="label">SMTP実送信</div><div class="note">2026-07-31にテスト宛先1件で受入確認済み（受付・受信・結果CSV記録）</div></div></div>
+        <div class="status-card"><div class="dot warn"></div><div><div class="label">GMO振込CSV</div><div class="note">生成は実装済み。ただしLステップ側の銀行コードが未入力のため、現時点では該当者が要確認一覧に回る</div></div></div>
+        <div class="status-card"><div class="dot warn"></div><div><div class="label">本番の学生一斉送信</div><div class="note">機構は実装済み。承認者と承認方法が未確定</div></div></div>
+        <div class="status-card"><div class="dot ok"></div><div><div class="label">Slackレポート</div><div class="note">運用中</div></div></div>
+        <div class="status-card"><div class="dot off"></div><div><div class="label">友だち情報フォーム</div><div class="note">設計台帳のみ。実フォーム・回答保存先・Lステップへ未接続</div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">8</span>引き継ぎ時の制約とリスク</h2>
+    <div class="panel">
+      <ul class="constraints">
+        <li><span class="risk">Slack Webhook URLが平文で同梱されている。</span>ルート直下の <code>.env</code> に実URLが入っている。Git管理へ入れる前に必ず除外する</li>
+        <li>全ツールが先方PCの絶対パス <code>/Users/koikeyuuki/BizReq/...</code> に依存している。日本語フォント <code>NotoSansJP-Regular.ttf</code> とCodexランタイムのPython／Nodeも固定パス参照のため、別環境ではそのまま動かない</li>
+        <li>Excel生成3本（member-demographics-report・interim_report_analysis・friend-form-design）は Codex 同梱の <code>@oai/artifact-tool</code> に依存する。Codex以外の環境で動かすには別ライブラリへの置き換えが必要</li>
+        <li>interim_report_analysis は organizations.json を1つ上の階層に固定で探す。マスターのパスを渡すオプションがないため、このディレクトリだけを単独で展開しても動かない</li>
+        <li>friend-form-design の <code>node_modules</code> は作業環境へのシンボリックリンク、出力先も日付固定。ZIPで受け渡す場合は再生成前に出力先の変更可否を確認する</li>
+        <li>入力CSV・出力物・要確認一覧には個人データが含まれ得る。共有ZIPからは <code>input/</code>・<code>output(s)/</code>・<code>processed/</code>・<code>.env</code> を除外する</li>
+        <li>案件マスタの表示名を変更する場合の、過去回答との対応管理ルールが未確定</li>
+        <li>入力データ・生成PDF・実行ログ・送信結果の保存期間が未確定</li>
+      </ul>
+    </div>
+  </section>
+
+  <footer>
+    ビズリク業務ツール群／出典: Sub_plan/案件/bizreq_求人掲載/11_コードデータ（2026-08-09時点の実装を読み取り作成）
+  </footer>
+</div>
+</body>
+</html>
